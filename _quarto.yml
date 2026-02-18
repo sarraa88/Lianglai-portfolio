@@ -19,7 +19,7 @@ website:
           - text: "Data Analysis Exercise"
             file: cdcdata-exercise/cdcdata-exercise.html
           - text: "presentation-exercise"
-            file: presentation-exercise.html
+            file: presentation-exercise/presentation-exercise.html
     right:
       - icon: github 
         href: https://github.com/LiangLai/Lianglai-portfolio   
