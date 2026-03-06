@@ -1,0 +1,71 @@
+---
+title: "Fitting Exercise"
+---
+
+# Analysis of the Mavoglurant pharmacokinetic data
+## Loading data and initial exploration
+```{r, warning=FALSE}
+# Load packages
+library(tidyverse)
+library(tidymodels)
+library(GGally)
+library(here)
+# Load data
+data <- read_csv(here("fitting-exercise", "Mavoglurant_A2121_nmpk.csv"))
+
+# quick cheak
+glimpse(data)
+```
+
+```{r}
+# Plot DV over TIME for each individual, colored by dose
+ggplot(data, aes(x = TIME, y = DV, group = ID, color = factor(DOSE))) +
+  geom_line(alpha = 0.4) +
+  labs(
+    title = "Drug concentration over time by individual",
+    x = "Time",
+    y = "DV",
+    color = "Dose"
+  )
+```
+
+```{r}
+# keep one OOC = 1
+data <- data %>%
+  filter(OCC == 1)
+
+# Create a new data frame with the sum of DV for each individual, excluding time 0
+y_dt <- data %>%
+  filter(TIME != 0) %>%
+  group_by(ID) %>%
+  summarize(Y = sum(DV, na.rm = TRUE), .groups = "drop")
+
+# keep time 0 data
+time0 <- data %>%
+  filter(TIME == 0) 
+
+# Merge the two data frames to include the sum of DV and the time 0 data
+d1 <- time0 %>%
+  left_join(y_dt, by = "ID")
+
+# Check the data
+dim(d1) 
+glimpse(d1)
+
+# Converts RACE and SEX to factor variables and keeps only these variables: Y,DOSE,AGE,SEX,RACE,WT,HT
+d1 <- d1 %>%
+  mutate(
+    RACE = as.factor(RACE),
+    SEX = as.factor(SEX)
+  ) %>% 
+  select(Y, DOSE, AGE, SEX, RACE, WT, HT)
+
+# Check the data
+glimpse(d1)
+head(d1)
+```
+
+## Exploratory data analysis
+
+# Conclusion
+From the results, it can be seen that in both models, the risk of dementia increases with age and depression, while the risks of diabetes and hypertension increase. Adding the secondary BMI term significantly improves the model's fit and confirms the expected non-linear (U-shaped) relationship between BMI and the risk of dementia.
