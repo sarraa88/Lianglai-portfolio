@@ -201,6 +201,7 @@ lm_dose_metrics <- lm_dose_results %>%
 lm_dose_metrics
 ```
 The linear model with DOSE as the only predictor explains about 51.6% of the variance in Y (R² = 0.516), with an RMSE of 666. The coefficients show a clear positive dose-response relationship. Higher doses are associated with greater drug exposure.
+
 ### Fit a linear model for Y using all predictors
 ```{r}
 # Fit a linear model with all predictors
@@ -223,6 +224,7 @@ lm_all_metrics <- lm_all_results %>%
 lm_all_metrics
 ```
 Adding all predictors improves the model fit — R² increases to 0.62 and RMSE drops to 590. DOSE remains the strongest predictor, with a clear positive dose response relationship.
+
 ### Fit a logistic model to the SEX
 ```{r}
 # Specify a logistic regression model

@@ -534,7 +534,7 @@ $ HT   &lt;dbl&gt; 1.769997, 1.759850, 1.809847, 1.649993, 1.560052, 1.829862, 1
 </div>
 </div>
 </div>
-<p>Based on the correlation matrix: * WT and HT show the strongest positive correlation (r = 0.600<strong><em>), which is physiologically expected. </em> Y has only weak correlations with all other variables, with WT being the most notable (r = -0.213<em>). </em> AGE and HT show a moderate negative correlation (r = -0.352</strong>*).</p>
+<p>Based on the correlation matrix: WT and HT show the strongest positive correlation (r = 0.600), which is physiologically expected. Y has only weak correlations with all other variables, with WT being the most notable (r = -0.213). AGE and HT show a moderate negative correlation (r = -0.352).</p>
 </section>
 </section>
 <section id="model-fitting" class="level2">
@@ -565,7 +565,7 @@ Coefficients:
 </div>
 </div>
 <div class="cell">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb31"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb31-1"><a href="#cb31-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Generate predictions from the DOSE-only linear model</span></span>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb31"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb31-1"><a href="#cb31-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Generate predictions from the DOSE only linear model</span></span>
 <span id="cb31-2"><a href="#cb31-2" aria-hidden="true" tabindex="-1"></a>lm_dose_results <span class="ot">&lt;-</span> d1 <span class="sc">%&gt;%</span></span>
 <span id="cb31-3"><a href="#cb31-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(Y) <span class="sc">%&gt;%</span></span>
 <span id="cb31-4"><a href="#cb31-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">bind_cols</span>(<span class="fu">predict</span>(lm_dose_fit, <span class="at">new_data =</span> d1))</span>
@@ -585,7 +585,10 @@ Coefficients:
 3 mae     standard     517.   </code></pre>
 </div>
 </div>
-<p>The linear model with DOSE as the only predictor explains about 51.6% of the variance in Y (R² = 0.516), with an RMSE of 666. The coefficients show a clear positive dose-response relationship. Higher doses are associated with greater drug exposure. ### Fit a linear model for Y using all predictors</p>
+<p>The linear model with DOSE as the only predictor explains about 51.6% of the variance in Y (R² = 0.516), with an RMSE of 666. The coefficients show a clear positive dose-response relationship. Higher doses are associated with greater drug exposure.</p>
+</section>
+<section id="fit-a-linear-model-for-y-using-all-predictors" class="level3">
+<h3 class="anchored" data-anchor-id="fit-a-linear-model-for-y-using-all-predictors">Fit a linear model for Y using all predictors</h3>
 <div class="cell">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb33"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb33-1"><a href="#cb33-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Fit a linear model with all predictors</span></span>
 <span id="cb33-2"><a href="#cb33-2" aria-hidden="true" tabindex="-1"></a>lm_all_fit <span class="ot">&lt;-</span> lm_spec <span class="sc">%&gt;%</span></span>
@@ -626,7 +629,10 @@ Coefficients:
 3 mae     standard     445.   </code></pre>
 </div>
 </div>
-<p>Adding all predictors improves the model fit — R² increases to 0.62 and RMSE drops to 590. DOSE remains the strongest predictor, with a clear positive dose-response relationship. ### Fit a logistic model to the SEX</p>
+<p>Adding all predictors improves the model fit — R² increases to 0.62 and RMSE drops to 590. DOSE remains the strongest predictor, with a clear positive dose response relationship.</p>
+</section>
+<section id="fit-a-logistic-model-to-the-sex" class="level3">
+<h3 class="anchored" data-anchor-id="fit-a-logistic-model-to-the-sex">Fit a logistic model to the SEX</h3>
 <div class="cell">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb37"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb37-1"><a href="#cb37-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Specify a logistic regression model</span></span>
 <span id="cb37-2"><a href="#cb37-2" aria-hidden="true" tabindex="-1"></a>log_spec <span class="ot">&lt;-</span> <span class="fu">logistic_reg</span>() <span class="sc">%&gt;%</span></span>
@@ -727,7 +733,7 @@ Residual Deviance: 32.02    AIC: 50.02</code></pre>
   &lt;chr&gt;    &lt;chr&gt;          &lt;dbl&gt;
 1 accuracy binary          0.95</code></pre>
 </div>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb47"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb47-1"><a href="#cb47-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Compute ROC-AUC</span></span>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb47"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb47-1"><a href="#cb47-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Compute ROC AUC</span></span>
 <span id="cb47-2"><a href="#cb47-2" aria-hidden="true" tabindex="-1"></a>log_all_results <span class="sc">%&gt;%</span></span>
 <span id="cb47-3"><a href="#cb47-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">roc_auc</span>(<span class="at">truth =</span> SEX, .pred_1, <span class="at">event_level =</span> <span class="st">"first"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
