@@ -14,7 +14,7 @@ library(here)
 data_raw <- read_csv(here("fitting-exercise", "Mavoglurant_A2121_nmpk.csv"))
 
 # quick cheak
-glimpse(data)
+glimpse(data_raw)
 ```
 
 ```{r}
@@ -33,17 +33,17 @@ From this figures, we can find that the three dose levels show similar trends, w
 
 ```{r}
 # keep one OOC = 1
-d1 <- data_raw %>%
+data_OOC1 <- data_raw %>%
   filter(OCC == 1)
 
 # Create a new data frame with the sum of DV for each individual, excluding time 0
-y_dt <- d1 %>%
+y_dt <- data_OOC1 %>%
   filter(TIME != 0) %>%
   group_by(ID) %>%
   summarize(Y = sum(DV, na.rm = TRUE), .groups = "drop")
 
 # keep time 0 data
-time0 <- data %>%
+time0 <- data_OOC1 %>%
   filter(TIME == 0) 
 
 # Merge the two data frames to include the sum of DV and the time 0 data
@@ -54,7 +54,8 @@ d1 <- time0 %>%
 d1 <- d1 %>%
   mutate(
     RACE = as.factor(RACE),
-    SEX = as.factor(SEX)
+    SEX = as.factor(SEX),
+    DOSE = as.factor(DOSE)
   ) %>% 
   select(Y, DOSE, AGE, SEX, RACE, WT, HT)
 
@@ -64,8 +65,224 @@ head(d1)
 summary(d1)
 ```
 
+The dataset represents a study population of 198 participants with a notable demographic skew: 87% are Sex(group 1) and 62% belong to Race 1. While doses are centered around a mean of 37.4 mg, the majority of subjects received the low (25 mg) or high (50 mg) levels, leaving the medium dose less represented.
 
 ## Exploratory data analysis
+### PLot
+I next examined the relationship between the outcome Y and the predictors using scatterplots for continuous variables and boxplots for categorical variables.
 
-# Conclusion
-From the results, it can be seen that in both models, the risk of dementia increases with age and depression, while the risks of diabetes and hypertension increase. Adding the secondary BMI term significantly improves the model's fit and confirms the expected non-linear (U-shaped) relationship between BMI and the risk of dementia.
+```{r}
+# Boxplot of Y by dose group
+ggplot(d1, aes(x = factor(DOSE), y = Y)) +
+  geom_boxplot() +
+  labs(
+    title = "Total drug concentration (Y) by dose group",
+    x = "Dose group",
+    y = "Y"
+  )
+```
+A positive correlation is observed between dose levels and Outcome Y.
+```{r}
+# Scatterplot of Y versus AGE
+ggplot(d1, aes(x = AGE, y = Y)) +
+  geom_point(alpha = 0.7) +
+  geom_smooth(method = "lm", se = FALSE) +
+  labs(
+    title = "Total drug concentration (Y) versus age",
+    x = "Age",
+    y = "Y"
+  )
+```
+There is no apparent correlation between Outcome Y and participant age.
+
+```{r}
+# Scatterplot of Y versus WT
+ggplot(d1, aes(x = WT, y = Y)) +
+  geom_point(alpha = 0.7) +
+  geom_smooth(method = "lm", se = FALSE) +
+  labs(
+    title = "Total drug concentration (Y) versus weight",
+    x = "Weight",
+    y = "Y"
+  )
+```
+There is a slight negative correlation between Outcome Y and body weight.
+```{r}
+# Scatterplot of Y versus HT
+ggplot(d1, aes(x = HT, y = Y)) +
+  geom_point(alpha = 0.7) +
+  geom_smooth(method = "lm", se = FALSE) +
+  labs(
+    title = "Total drug concentration (Y) versus height",
+    x = "Height",
+    y = "Y"
+  )
+```
+There is a slight negative correlation between Outcome Y and height.
+```{r}
+# Boxplot of Y by SEX
+ggplot(d1, aes(x = SEX, y = Y)) +
+  geom_boxplot() +
+  labs(
+    title = "Total drug concentration (Y) by sex",
+    x = "Sex",
+    y = "Y"
+  )
+```
+There is no apparent difference between Outcome Y and participant age.
+
+```{r}
+# Boxplot of Y by RACE
+ggplot(d1, aes(x = RACE, y = Y)) +
+  geom_boxplot() +
+  labs(
+    title = "Total drug concentration (Y) by race",
+    x = "Race",
+    y = "Y"
+  )
+```
+There is no apparent difference between Outcome Y and Race. 
+
+### Distributions
+```{r}
+d1 %>%
+  select(Y, AGE, WT, HT) %>%
+  pivot_longer(
+    cols = everything(),
+    names_to = "variable",
+    values_to = "value"
+  ) %>%
+  ggplot(aes(x = value)) +
+  geom_histogram(bins = 30) +
+  facet_wrap(~ variable, scales = "free") +
+  labs(
+    title = "Distributions of continuous variables",
+    x = "Value",
+    y = "Count"
+  )
+```
+AGE: Right skewed, mostly concentrated between 20–35 years old.
+HT: Roughly normally distributed, centered around 1.70–1.85 m.
+WT: Slightly right skewed, most individuals weigh between 70–90 kg.
+Y: Right-skewed with a long tail, most values fall between 1000–4000.
+### Pair Plot
+```{r}
+d1 %>%
+  select(Y, AGE, WT, HT) %>%
+  ggpairs()
+```
+Based on the correlation matrix:
+* WT and HT show the strongest positive correlation (r = 0.600***), which is physiologically expected.
+* Y has only weak correlations with all other variables, with WT being the most notable (r = -0.213*).
+* AGE and HT show a moderate negative correlation (r = -0.352***).
+
+## Model fitting
+### Fit a linear model for Y using DOSE as the main predictor
+```{r}
+# Specify a linear regression model
+lm_spec <- linear_reg() %>%
+  set_engine("lm")
+
+# Fit a linear model with DOSE as the predictor
+lm_dose_fit <- lm_spec %>%
+  fit(Y ~ DOSE, data = d1)
+
+# View model results
+lm_dose_fit
+```
+```{r}
+# Generate predictions from the DOSE-only linear model
+lm_dose_results <- d1 %>%
+  select(Y) %>%
+  bind_cols(predict(lm_dose_fit, new_data = d1))
+
+# Compute performance metrics
+lm_dose_metrics <- lm_dose_results %>%
+  metrics(truth = Y, estimate = .pred)
+
+# Print metrics
+lm_dose_metrics
+```
+The linear model with DOSE as the only predictor explains about 51.6% of the variance in Y (R² = 0.516), with an RMSE of 666. The coefficients show a clear positive dose-response relationship. Higher doses are associated with greater drug exposure.
+### Fit a linear model for Y using all predictors
+```{r}
+# Fit a linear model with all predictors
+lm_all_fit <- lm_spec %>%
+  fit(Y ~ DOSE + AGE + SEX + RACE + WT + HT, data = d1)
+
+# View model results
+lm_all_fit
+
+# Generate predictions from the full linear model
+lm_all_results <- d1 %>%
+  select(Y) %>%
+  bind_cols(predict(lm_all_fit, new_data = d1))
+
+# Compute performance metrics
+lm_all_metrics <- lm_all_results %>%
+  metrics(truth = Y, estimate = .pred)
+
+# Print metrics
+lm_all_metrics
+```
+Adding all predictors improves the model fit — R² increases to 0.62 and RMSE drops to 590. DOSE remains the strongest predictor, with a clear positive dose-response relationship.
+### Fit a logistic model to the SEX
+```{r}
+# Specify a logistic regression model
+log_spec <- logistic_reg() %>%
+  set_engine("glm")
+
+# Fit a logistic model with DOSE as the predictor
+log_dose_fit <- log_spec %>%
+  fit(SEX ~ DOSE, data = d1)
+
+# View model results
+log_dose_fit
+
+# Generate class predictions and probabilities, then combine with truth
+log_dose_results <- d1 %>%
+  select(SEX) %>%
+  bind_cols(
+    predict(log_dose_fit, new_data = d1, type = "class"),
+    predict(log_dose_fit, new_data = d1, type = "prob")
+  )
+
+# Compute classification accuracy
+log_dose_results %>%
+  accuracy(truth = SEX, estimate = .pred_class)
+
+# Compute ROC-AUC using the first level as the event
+log_dose_results %>%
+  roc_auc(truth = SEX, .pred_1, event_level = "first")
+```
+
+### Fit a logistic model for SEX using all predictors
+```{r}
+# Fit a logistic regression model with all predictors
+log_all_fit <- log_spec %>%
+  fit(SEX ~ DOSE + AGE + RACE + WT + HT , data = d1)
+
+# Generate predicted classes
+log_all_class <- predict(log_all_fit, new_data = d1, type = "class")
+
+# Generate predicted probabilities
+log_all_prob <- predict(log_all_fit, new_data = d1, type = "prob")
+
+# Combine results
+log_all_results <- d1 %>%
+  select(SEX) %>%
+  bind_cols(log_all_class) %>%
+  bind_cols(log_all_prob)
+
+# Print the fitted model
+log_all_fit
+
+# Compute accuracy
+log_all_results %>%
+  accuracy(truth = SEX, estimate = .pred_class)
+
+# Compute ROC-AUC
+log_all_results %>%
+  roc_auc(truth = SEX, .pred_1, event_level = "first")
+```
+The logistic model using DOSE alone showed poor predictive performance, with a ROC-AUC of 0.592 and accuracy of 0.867, where the high accuracy is largely driven by class imbalance. Adding all predictors substantially improved the model, with ROC-AUC increasing to 0.978 and accuracy reaching 0.95. However, this does not mean sex can be clinically predicted from these variables. And since gender is something we already know, it has no practical significance.
