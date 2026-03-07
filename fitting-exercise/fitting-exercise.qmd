@@ -11,7 +11,7 @@ library(tidymodels)
 library(GGally)
 library(here)
 # Load data
-data <- read_csv(here("fitting-exercise", "Mavoglurant_A2121_nmpk.csv"))
+data_raw <- read_csv(here("fitting-exercise", "Mavoglurant_A2121_nmpk.csv"))
 
 # quick cheak
 glimpse(data)
@@ -19,7 +19,7 @@ glimpse(data)
 
 ```{r}
 # Plot DV over TIME for each individual, colored by dose
-ggplot(data, aes(x = TIME, y = DV, group = ID, color = factor(DOSE))) +
+ggplot(data_raw, aes(x = TIME, y = DV, group = ID, color = factor(DOSE))) +
   geom_line(alpha = 0.4) +
   labs(
     title = "Drug concentration over time by individual",
@@ -29,13 +29,15 @@ ggplot(data, aes(x = TIME, y = DV, group = ID, color = factor(DOSE))) +
   )
 ```
 
+From this figures, we can find that the three dose levels show similar trends, with systemic exposure increasing relative to the dose.
+
 ```{r}
 # keep one OOC = 1
-data <- data %>%
+d1 <- data_raw %>%
   filter(OCC == 1)
 
 # Create a new data frame with the sum of DV for each individual, excluding time 0
-y_dt <- data %>%
+y_dt <- d1 %>%
   filter(TIME != 0) %>%
   group_by(ID) %>%
   summarize(Y = sum(DV, na.rm = TRUE), .groups = "drop")
@@ -48,10 +50,6 @@ time0 <- data %>%
 d1 <- time0 %>%
   left_join(y_dt, by = "ID")
 
-# Check the data
-dim(d1) 
-glimpse(d1)
-
 # Converts RACE and SEX to factor variables and keeps only these variables: Y,DOSE,AGE,SEX,RACE,WT,HT
 d1 <- d1 %>%
   mutate(
@@ -63,7 +61,9 @@ d1 <- d1 %>%
 # Check the data
 glimpse(d1)
 head(d1)
+summary(d1)
 ```
+
 
 ## Exploratory data analysis
 
