@@ -171,10 +171,7 @@ d1 %>%
   select(Y, AGE, WT, HT) %>%
   ggpairs()
 ```
-Based on the correlation matrix:
-* WT and HT show the strongest positive correlation (r = 0.600***), which is physiologically expected.
-* Y has only weak correlations with all other variables, with WT being the most notable (r = -0.213*).
-* AGE and HT show a moderate negative correlation (r = -0.352***).
+Based on the correlation matrix: WT and HT show the strongest positive correlation (r = 0.600), which is physiologically expected. Y has only weak correlations with all other variables, with WT being the most notable (r = -0.213). AGE and HT show a moderate negative correlation (r = -0.352).
 
 ## Model fitting
 ### Fit a linear model for Y using DOSE as the main predictor
@@ -191,7 +188,7 @@ lm_dose_fit <- lm_spec %>%
 lm_dose_fit
 ```
 ```{r}
-# Generate predictions from the DOSE-only linear model
+# Generate predictions from the DOSE only linear model
 lm_dose_results <- d1 %>%
   select(Y) %>%
   bind_cols(predict(lm_dose_fit, new_data = d1))
@@ -225,7 +222,7 @@ lm_all_metrics <- lm_all_results %>%
 # Print metrics
 lm_all_metrics
 ```
-Adding all predictors improves the model fit — R² increases to 0.62 and RMSE drops to 590. DOSE remains the strongest predictor, with a clear positive dose-response relationship.
+Adding all predictors improves the model fit — R² increases to 0.62 and RMSE drops to 590. DOSE remains the strongest predictor, with a clear positive dose response relationship.
 ### Fit a logistic model to the SEX
 ```{r}
 # Specify a logistic regression model
@@ -281,7 +278,7 @@ log_all_fit
 log_all_results %>%
   accuracy(truth = SEX, estimate = .pred_class)
 
-# Compute ROC-AUC
+# Compute ROC AUC
 log_all_results %>%
   roc_auc(truth = SEX, .pred_1, event_level = "first")
 ```
