@@ -15,6 +15,9 @@ data_raw <- read_csv(here("fitting-exercise", "Mavoglurant_A2121_nmpk.csv"))
 
 # quick cheak
 glimpse(data_raw)
+
+# Set random seed 
+rngseed = 1234
 ```
 
 ```{r}
@@ -57,7 +60,7 @@ d1 <- d1 %>%
     SEX = as.factor(SEX),
     DOSE = as.factor(DOSE)
   ) %>% 
-  select(Y, DOSE, AGE, SEX, RACE, WT, HT)
+  select(Y, DOSE, AGE, SEX, WT, HT) # RACE removed
 
 # Check the data
 glimpse(d1)
@@ -129,10 +132,10 @@ ggplot(d1, aes(x = SEX, y = Y)) +
     y = "Y"
   )
 ```
-There is no apparent difference between Outcome Y and participant age.
+There is no apparent difference between Outcome Y and participant sex groups.
 
-```{r}
-# Boxplot of Y by RACE
+
+<!-- # Boxplot of Y by RACE
 ggplot(d1, aes(x = RACE, y = Y)) +
   geom_boxplot() +
   labs(
@@ -140,8 +143,7 @@ ggplot(d1, aes(x = RACE, y = Y)) +
     x = "Race",
     y = "Y"
   )
-```
-There is no apparent difference between Outcome Y and Race. 
+There is no apparent difference between Outcome Y and Race.  -->
 
 ### Distributions
 ```{r}
@@ -174,24 +176,46 @@ d1 %>%
 Based on the correlation matrix: WT and HT show the strongest positive correlation (r = 0.600), which is physiologically expected. Y has only weak correlations with all other variables, with WT being the most notable (r = -0.213). AGE and HT show a moderate negative correlation (r = -0.352).
 
 ## Model fitting
-### Fit a linear model for Y using DOSE as the main predictor
+### Split data into training and testing sets
 ```{r}
+set.seed(rngseed)
+
+# Split data: 75% train, 25% test
+data_split <- initial_split(d1, prop = 0.75)
+train_data <- training(data_split)
+test_data  <- testing(data_split)
+
+# Check sizes
+nrow(train_data)  
+nrow(test_data) 
+```
+
+### Fit a linear model for Y using DOSE as the main predictor
+
+```{r}
+# Null model
+null_pred <- mean(train_data$Y)
+
+null_rmse <- train_data %>%
+  mutate(.pred = null_pred) %>%
+  rmse(truth = Y, estimate = .pred)
+
 # Specify a linear regression model
 lm_spec <- linear_reg() %>%
   set_engine("lm")
 
 # Fit a linear model with DOSE as the predictor
 lm_dose_fit <- lm_spec %>%
-  fit(Y ~ DOSE, data = d1)
+  fit(Y ~ DOSE, data = train_data)
 
 # View model results
 lm_dose_fit
 ```
 ```{r}
 # Generate predictions from the DOSE only linear model
-lm_dose_results <- d1 %>%
+lm_dose_results <- train_data %>%
   select(Y) %>%
-  bind_cols(predict(lm_dose_fit, new_data = d1))
+  bind_cols(predict(lm_dose_fit, new_data = train_data))
 
 # Compute performance metrics
 lm_dose_metrics <- lm_dose_results %>%
@@ -200,21 +224,21 @@ lm_dose_metrics <- lm_dose_results %>%
 # Print metrics
 lm_dose_metrics
 ```
-The linear model with DOSE as the only predictor explains about 51.6% of the variance in Y (R² = 0.516), with an RMSE of 666. The coefficients show a clear positive dose-response relationship. Higher doses are associated with greater drug exposure.
+The linear model with DOSE as the only predictor explains about 45.1% of the variance in Y (R² = 0.451), with an RMSE of 703. The coefficients show a clear positive dose-response relationship. Higher doses are associated with greater drug exposure.
 
 ### Fit a linear model for Y using all predictors
 ```{r}
-# Fit a linear model with all predictors
+# Fit a linear model with all predictors except RACE
 lm_all_fit <- lm_spec %>%
-  fit(Y ~ DOSE + AGE + SEX + RACE + WT + HT, data = d1)
+  fit(Y ~ DOSE + AGE + SEX + WT + HT, data = train_data)
 
 # View model results
 lm_all_fit
 
 # Generate predictions from the full linear model
-lm_all_results <- d1 %>%
+lm_all_results <- train_data %>%
   select(Y) %>%
-  bind_cols(predict(lm_all_fit, new_data = d1))
+  bind_cols(predict(lm_all_fit, new_data = train_data))
 
 # Compute performance metrics
 lm_all_metrics <- lm_all_results %>%
@@ -223,8 +247,83 @@ lm_all_metrics <- lm_all_results %>%
 # Print metrics
 lm_all_metrics
 ```
-Adding all predictors improves the model fit — R² increases to 0.62 and RMSE drops to 590. DOSE remains the strongest predictor, with a clear positive dose response relationship.
+Adding all predictors improves the model fit — R² increases to 0.56 and RMSE drops to 627. DOSE remains the strongest predictor, with a clear positive dose response relationship.
+### Compare RMSE of null model, model 1 (DOSE only), and model 2 (all predictors)
+```{r}
+# Print all three RMSE values for comparison
+cat("Null model RMSE:", null_rmse$.estimate, "\n")   
+cat("Model 1 RMSE:  ", lm_dose_metrics$.estimate[1], "\n")  
+cat("Model 2 RMSE:  ", lm_all_metrics$.estimate[1], "\n")   
+```
+The null model, which predicts the mean Y for all observations, has an RMSE of approximately 948. The linear model using DOSE alone reduces the RMSE to around 702, indicating a substantial improvement in predictive accuracy. Adding all predictors further reduces the RMSE to about 627, demonstrating that these additional variables contribute to better explaining the variability in Y.
+### Cross-validation for null model, model 1, and model 2
+```{r}
+# Reset seed before CV 
+set.seed(rngseed)
 
+# Create 10-fold CV folds from training data
+cv_folds <- vfold_cv(train_data, v = 10)
+
+# Null model CV spec
+null_spec <- null_model() %>%
+  set_engine("parsnip") %>%
+  set_mode("regression")
+
+cv_null <- fit_resamples(
+  null_spec,
+  Y ~ .,
+  resamples = cv_folds,
+  metrics = metric_set(rmse)
+)
+
+# CV for Model 1
+cv_dose <- fit_resamples(
+  lm_spec,
+  Y ~ DOSE,
+  resamples = cv_folds,
+  metrics = metric_set(rmse)
+)
+
+# CV for Model 2
+cv_all <- fit_resamples(
+  lm_spec,
+  Y ~ .,
+  resamples = cv_folds,
+  metrics = metric_set(rmse)
+)
+
+# Compare results
+collect_metrics(cv_null)
+collect_metrics(cv_dose)
+collect_metrics(cv_all)
+```
+The CV RMSE values are 933 (null), 697 (Model 1), and 653 (Model 2). Compared to the training set RMSE (948, 703, 627), the null model and Model 1 remain similar, while Model 2's CV RMSE is slightly higher than its training RMSE (653 vs 627), suggesting mild overfitting. Model 2 still performs best overall.
+
+### Rerun CV with a different seed to check robustness
+```{r}
+set.seed(1)
+cv_folds2 <- vfold_cv(train_data, v = 10)
+
+cv_null2 <- fit_resamples(null_spec, Y ~ .,
+                          resamples = cv_folds2,
+                          metrics = metric_set(rmse))
+cv_dose2 <- fit_resamples(lm_spec, Y ~ DOSE,
+                          resamples = cv_folds2,
+                          metrics = metric_set(rmse))
+cv_all2  <- fit_resamples(lm_spec, Y ~ .,
+                          resamples = cv_folds2,
+                          metrics = metric_set(rmse))
+
+collect_metrics(cv_null2)
+collect_metrics(cv_dose2)
+collect_metrics(cv_all2)
+```
+With a different random seed, the CV RMSE values shift slightly, but the overall pattern remains the same: Model 2 outperforms Model 1, which outperforms the null model. This confirms that the results are robust and not dependent on a particular random split.
+
+This is part 1 
+
+
+<!-- This is previous task, fit a logistic model for SEX.
 ### Fit a logistic model to the SEX
 ```{r}
 # Specify a logistic regression model
@@ -257,9 +356,9 @@ log_dose_results %>%
 
 ### Fit a logistic model for SEX using all predictors
 ```{r}
-# Fit a logistic regression model with all predictors
+# Fit a logistic regression model with all predictors except RACE
 log_all_fit <- log_spec %>%
-  fit(SEX ~ DOSE + AGE + RACE + WT + HT , data = d1)
+  fit(SEX ~ DOSE + AGE + WT + HT , data = d1)
 
 # Generate predicted classes
 log_all_class <- predict(log_all_fit, new_data = d1, type = "class")
@@ -284,4 +383,4 @@ log_all_results %>%
 log_all_results %>%
   roc_auc(truth = SEX, .pred_1, event_level = "first")
 ```
-The logistic model using DOSE alone showed poor predictive performance, with a ROC-AUC of 0.592 and accuracy of 0.867, where the high accuracy is largely driven by class imbalance. Adding all predictors substantially improved the model, with ROC-AUC increasing to 0.978 and accuracy reaching 0.95. However, this does not mean sex can be clinically predicted from these variables. And since gender is something we already know, it has no practical significance.
+The logistic model using DOSE alone showed poor predictive performance, with a ROC-AUC of 0.592 and accuracy of 0.867, where the high accuracy is largely driven by class imbalance. Adding all predictors substantially improved the model, with ROC-AUC increasing to 0.978 and accuracy reaching 0.95. However, this does not mean sex can be clinically predicted from these variables. And since gender is something we already know, it has no practical significance.-->
